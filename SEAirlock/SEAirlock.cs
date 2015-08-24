@@ -51,7 +51,7 @@ class StatusReport
 
     public class Airlock
     {
-        string name;
+        public string name;
         public AirlockObjects airlock;
         ITerminalAction closeDoor;
         ITerminalAction openDoor;
@@ -60,7 +60,12 @@ class StatusReport
         Color red = new Color(255, 0, 0);
         Color green = new Color(0, 255, 0);
 
-        public Airlock(string _airlockName, AirlockObjects _airlock)
+        public Airlock()
+        {
+         
+        }
+
+        public void AirlockInitObject(string _airlockName, AirlockObjects _airlock)
         {
             this.name = _airlockName;
             this.airlock = _airlock;
@@ -110,6 +115,9 @@ class StatusReport
     }
 
     List<Airlock> allAirlocks = new List<Airlock>();
+    Airlock airlock = new Airlock();
+    static bool init = false;
+
     void Main()
     {
         List<IMyTerminalBlock> allBlocks = new List<IMyTerminalBlock>();
@@ -119,28 +127,40 @@ class StatusReport
         GridTerminalSystem.GetBlocksOfType<IMyAirVent>(airVentBlocks);
 
 
-
-        for (int i = 0; i < airVentBlocks.Count; i++)
+        if (!init)
         {
+            Echo("Init was required");
 
-            string tmpBlockName = airVentBlocks[i].CustomName;
-            if (tmpBlockName.StartsWith("Airlock"))
+            for (int i = 0; i < airVentBlocks.Count; i++)
             {
-                AirlockObjects airlockObj = new AirlockObjects();
-                collectObjectsForAirvent(tmpBlockName, airlockObj);
-                Airlock airlock = new Airlock(tmpBlockName, airlockObj);
 
-                if (!airlock.airlock.insideLight.Enabled)
+                string tmpBlockName = airVentBlocks[i].CustomName;
+                if (tmpBlockName.StartsWith("Airlock"))
                 {
-                    if (airlock.airlock.outsideLight.Enabled &&
-                        airlock.airlock.middleLight.Enabled)
-                        Echo("HUHA");
-                    airlock.enterAirlockFromInside();
-                }
+                    AirlockObjects airlockObj = new AirlockObjects();
+                    
+                    collectObjectsForAirvent(tmpBlockName, airlockObj);
 
-                //            allAirlocks.Add(airlock); 
+                    airlock.AirlockInitObject(tmpBlockName, airlockObj);
+                    airlock.name = tmpBlockName;
+
+                    //            allAirlocks.Add(airlock); 
+                }
             }
+            init = true;
         }
+        else
+        {
+            Echo("Init was NOT required");
+        }
+
+        //if (!airlock.airlock.insideLight.Enabled)
+        {
+            if (airlock.airlock.outsideLight.Enabled &&
+                airlock.airlock.middleLight.Enabled)
+                airlock.enterAirlockFromInside();
+        }
+
 
         /*    for (int i = 0; i < allAirlocks.Count; i++) 
             { 
