@@ -29,7 +29,7 @@ class StatusReport
     Airlock[] allAirlocks = new Airlock[10];
     static int airlockCount;
     static bool init = false;
-
+    const byte MAX_PRESSURIZATION = 3;
 
 
     List<string> airventObjects = new List<string>() 
@@ -55,8 +55,11 @@ class StatusReport
         public AirlockObjects() { }
     }
 
+    
+
     public class Airlock
     {
+        public byte pressurizationCount;
         const byte Idle = 0;
         const byte RequestAccesFromInisde = 1;
         const byte RequestAccesFromOutside = 2;
@@ -67,6 +70,7 @@ class StatusReport
         const byte disableDoor = 1;
         const byte pressurize = 2;
         const byte openDoor = 3;
+        
         
 
         public byte state;
@@ -102,6 +106,20 @@ class StatusReport
                 state = RequestAccesFromOutside;
 
             }
+
+            if (airlock.middleLight.BlinkIntervalSeconds != 0f && state == Idle)
+            {
+                state = RequestAccesToOutside;
+                enterState = closeDoor;
+
+            }
+            
+            if (!airlock.middleLight.Enabled && state == Idle)
+            {
+                state = RequestAccesToInside;
+                enterState = closeDoor;
+
+            }
         }
 
         public void provideAirlockActions()
@@ -111,6 +129,7 @@ class StatusReport
                 case RequestAccesFromInisde: enterAirlockFromInside(); break;
                 case RequestAccesFromOutside: enterAirlockFromOutside(); break;
                 case RequestAccesToOutside: requestAccessToOutside(); break;
+                case RequestAccesToInside: enterAirlockFromInside(); break;
             }
 
         }
@@ -119,8 +138,50 @@ class StatusReport
         { 
         }
 
+        
         public void requestAccessToOutside()
         {
+            switch (enterState)
+            {
+                case closeDoor:
+                    {
+                        enterState = disableDoor;
+                        airlock.insideLight.SetValue("Color", red);
+                        airlock.outsideLight.SetValue("Color", red);
+                        airlock.middleLight.SetValue("Color", red);
+                        airlock.insideDoorBlock.ApplyAction("Open_Off");
+                        break;
+                    }
+
+                case disableDoor:
+                    {
+                        if (!airlock.insideDoorBlock.Open)
+                        {
+                            enterState = disableDoor;
+                            airlock.insideDoorBlock.ApplyAction("OnOff_Off");
+                            airlock.airvent.ApplyAction("Depressurize_On");
+                            enterState = pressurize;
+                            pressurizationCount = 0;
+                        }
+                        break;
+                    }
+
+                case pressurize:
+                    {
+                        if (airlock.airvent.GetOxygenLevel() < 0.5f || pressurizationCount > MAX_PRESSURIZATION)
+                        {
+                            airlock.outsideDoorBlock.ApplyAction("OnOff_On");
+                            airlock.middleLight.ApplyAction("DecreaseBlink Interval");
+                            airlock.middleLight.SetValue("Color", red);
+                            airlock.outsideLight.SetValue("Color", green);
+                            enterState = closeDoor;
+                            state = Idle;                            
+                        }
+                        pressurizationCount++;
+                        break;
+                    }
+            }
+        
         }
             
         public void enterAirlockFromInside()
@@ -131,21 +192,24 @@ class StatusReport
                     {
                         airlock.outsideDoorBlock.ApplyAction("Open_Off");
                         airlock.middleLight.SetValue("Color", red);
-                        if (airlock.outsideDoorBlock.Open)
+                        if (!airlock.outsideDoorBlock.Open)
                         {
                             enterState = disableDoor;
+                            airlock.insideDoorBlock.ApplyAction("Open_Off");
+                            pressurizationCount = 0;
                         }
                         break;
                     }
-             t   case disableDoor:
+                case disableDoor:
                     {
                         airlock.outsideDoorBlock.ApplyAction("OnOff_Off");                        
-                        airlock.airvent.ApplyAction("Depressurize_Off"); 
-                        if (airlock.airvent.CanPressurize)
+                        airlock.airvent.ApplyAction("Depressurize_Off");
+                        if (airlock.airvent.GetOxygenLevel() > 0.8f || pressurizationCount > MAX_PRESSURIZATION)
                         {
                             airlock.insideDoorBlock.ApplyAction("OnOff_On");                        
                             enterState = pressurize;
                         }
+                        pressurizationCount++;
                         break;
                     }
                 case pressurize:
@@ -155,7 +219,8 @@ class StatusReport
                         airlock.middleLight.SetValue("Color", green);
                         airlock.insideLight.SetValue("Color", green);
                         airlock.insideLight.ApplyAction("OnOff_On");
-                        enterState = openDoor;
+                        airlock.middleLight.ApplyAction("OnOff_On");
+                        enterState = closeDoor;
                         state = Idle;
                         break;
                     }
@@ -236,6 +301,7 @@ class StatusReport
           {
               Echo("State" + allAirlocks[i].state);
               Echo("EnterState" + allAirlocks[i].enterState);
+              Echo("Oxygen:" + allAirlocks[i].airlock.airvent.GetOxygenLevel());
 
               allAirlocks[i].checkAirlockState();
               allAirlocks[i].provideAirlockActions();
