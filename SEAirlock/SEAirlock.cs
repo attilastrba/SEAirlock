@@ -114,8 +114,10 @@ class StatusReport
 
     }
 
-    List<Airlock> allAirlocks = new List<Airlock>();
-    Airlock airlock = new Airlock();
+    
+    Airlock[] allAirlocks = new Airlock[10];
+
+    int airlockCount;
     static bool init = false;
 
     void Main()
@@ -131,6 +133,7 @@ class StatusReport
         {
             Echo("Init was required");
 
+            airlockCount = 0;
             for (int i = 0; i < airVentBlocks.Count; i++)
             {
 
@@ -138,13 +141,16 @@ class StatusReport
                 if (tmpBlockName.StartsWith("Airlock"))
                 {
                     AirlockObjects airlockObj = new AirlockObjects();
-                    
+
                     collectObjectsForAirvent(tmpBlockName, airlockObj);
 
+                    Airlock airlock = new Airlock();
                     airlock.AirlockInitObject(tmpBlockName, airlockObj);
                     airlock.name = tmpBlockName;
 
-                    //            allAirlocks.Add(airlock); 
+                    allAirlocks[airlockCount] = airlock;
+                    
+    
                 }
             }
             init = true;
@@ -154,20 +160,23 @@ class StatusReport
             Echo("Init was NOT required");
         }
 
-        //if (!airlock.airlock.insideLight.Enabled)
-        {
-            if (airlock.airlock.outsideLight.Enabled &&
-                airlock.airlock.middleLight.Enabled)
-                airlock.enterAirlockFromInside();
-        }
+        Echo("AirlockCount" + airlockCount);
+          for (int i = 0; i < airlockCount; i++) 
+          { 
+                if (!allAirlocks[i].airlock.insideLight.Enabled)
+                {
+                    if (allAirlocks[i].airlock.outsideLight.Enabled &&
+                        allAirlocks[i].airlock.middleLight.Enabled)
+                        allAirlocks[i].enterAirlockFromInside();
+                }
 
-
-        /*    for (int i = 0; i < allAirlocks.Count; i++) 
-            { 
-            } 
+           } 
     
-          */
+         
 
+
+
+       
     } 
 
 }
