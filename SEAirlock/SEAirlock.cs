@@ -26,6 +26,12 @@ class StatusReport
 {
     IMyGridTerminalSystem GridTerminalSystem;
 
+    Airlock[] allAirlocks = new Airlock[10];
+    static int airlockCount;
+    static bool init = false;
+
+
+
     List<string> airventObjects = new List<string>() 
 { 
     "outsideDoor",  
@@ -51,12 +57,23 @@ class StatusReport
 
     public class Airlock
     {
+        const byte Idle = 0;
+        const byte RequestAccesFromInisde = 1;
+        const byte RequestAccesFromOutside = 2;
+        const byte RequestAccesToOutside = 3;
+        const byte RequestAccesToInside = 4;
+
+        const byte closeDoor = 0;
+        const byte disableDoor = 1;
+        const byte pressurize = 2;
+        const byte openDoor = 3;
+        
+
+        public byte state;
+        public byte enterState;
+
         public string name;
         public AirlockObjects airlock;
-        ITerminalAction closeDoor;
-        ITerminalAction openDoor;
-        ITerminalAction disableDoor;
-        ITerminalAction enableDoor;
         Color red = new Color(255, 0, 0);
         Color green = new Color(0, 255, 0);
 
@@ -69,24 +86,82 @@ class StatusReport
         {
             this.name = _airlockName;
             this.airlock = _airlock;
-
-            closeDoor = this.airlock.outsideDoorBlock.GetActionWithName("Open_Off");
-            openDoor = this.airlock.outsideDoorBlock.GetActionWithName("Open_On");
-            disableDoor = this.airlock.outsideDoorBlock.GetActionWithName("OnOff_Off");
-            enableDoor = this.airlock.outsideDoorBlock.GetActionWithName("OnOff_On");
         }
 
-        public void enterAirlockFromInside()
+        public void checkAirlockState()
         {
 
-            closeDoor.Apply(this.airlock.outsideDoorBlock);
-            disableDoor.Apply(this.airlock.outsideDoorBlock);
-            openDoor.Apply(this.airlock.insideDoorBlock);
-            airlock.outsideLight.SetValue("Color", red);
-            airlock.middleLight.SetValue("Color", red);
-            //   disableDoor.Apply(this.airlock.middleLight); 
-            airlock.insideLight.SetValue("Color", green);
+            if (!airlock.insideLight.Enabled && state == Idle)
+            {
+                state = RequestAccesFromInisde;
+                enterState = closeDoor;
+            }
 
+            if (!airlock.outsideLight.Enabled && state == Idle)
+            {
+                state = RequestAccesFromOutside;
+
+            }
+        }
+
+        public void provideAirlockActions()
+        {
+            switch (state)
+            {
+                case RequestAccesFromInisde: enterAirlockFromInside(); break;
+                case RequestAccesFromOutside: enterAirlockFromOutside(); break;
+                case RequestAccesToOutside: requestAccessToOutside(); break;
+            }
+
+        }
+
+        public void enterAirlockFromOutside()
+        { 
+        }
+
+        public void requestAccessToOutside()
+        {
+        }
+            
+        public void enterAirlockFromInside()
+        {
+            switch (enterState)
+            {
+                case closeDoor: 
+                    {
+                        airlock.outsideDoorBlock.ApplyAction("Open_Off");
+                        airlock.middleLight.SetValue("Color", red);
+                        if (airlock.outsideDoorBlock.Open)
+                        {
+                            enterState = disableDoor;
+                        }
+                        break;
+                    }
+             t   case disableDoor:
+                    {
+                        airlock.outsideDoorBlock.ApplyAction("OnOff_Off");                        
+                        airlock.airvent.ApplyAction("Depressurize_Off"); 
+                        if (airlock.airvent.CanPressurize)
+                        {
+                            airlock.insideDoorBlock.ApplyAction("OnOff_On");                        
+                            enterState = pressurize;
+                        }
+                        break;
+                    }
+                case pressurize:
+                    {
+                        airlock.insideDoorBlock.ApplyAction("Open_On");
+                        airlock.outsideLight.SetValue("Color", red);
+                        airlock.middleLight.SetValue("Color", green);
+                        airlock.insideLight.SetValue("Color", green);
+                        airlock.insideLight.ApplyAction("OnOff_On");
+                        enterState = openDoor;
+                        state = Idle;
+                        break;
+                    }
+                    
+            }
+                
         }
 
     }
@@ -114,13 +189,7 @@ class StatusReport
 
     }
 
-    
-    Airlock[] allAirlocks = new Airlock[10];
-
-    int airlockCount;
-    static bool init = false;
-
-    void Main()
+    void initAirlocks()
     {
         List<IMyTerminalBlock> allBlocks = new List<IMyTerminalBlock>();
         GridTerminalSystem.GetBlocks(allBlocks);
@@ -128,47 +197,48 @@ class StatusReport
         List<IMyTerminalBlock> airVentBlocks = new List<IMyTerminalBlock>();
         GridTerminalSystem.GetBlocksOfType<IMyAirVent>(airVentBlocks);
 
+        airlockCount = 0;
+        for (int i = 0; i < airVentBlocks.Count; i++)
+        {
 
+            string tmpBlockName = airVentBlocks[i].CustomName;
+            if (tmpBlockName.StartsWith("Airlock"))
+            {
+                AirlockObjects airlockObj = new AirlockObjects();
+
+                collectObjectsForAirvent(tmpBlockName, airlockObj);
+
+                Airlock airlock = new Airlock();
+                airlock.AirlockInitObject(tmpBlockName, airlockObj);
+                airlock.name = tmpBlockName;
+
+                allAirlocks[airlockCount++] = airlock;
+
+
+            }
+        }
+        
+    }
+    
+    
+    void Main()
+    {
+       
         if (!init)
         {
             Echo("Init was required");
-
-            airlockCount = 0;
-            for (int i = 0; i < airVentBlocks.Count; i++)
-            {
-
-                string tmpBlockName = airVentBlocks[i].CustomName;
-                if (tmpBlockName.StartsWith("Airlock"))
-                {
-                    AirlockObjects airlockObj = new AirlockObjects();
-
-                    collectObjectsForAirvent(tmpBlockName, airlockObj);
-
-                    Airlock airlock = new Airlock();
-                    airlock.AirlockInitObject(tmpBlockName, airlockObj);
-                    airlock.name = tmpBlockName;
-
-                    allAirlocks[airlockCount] = airlock;
-                    
-    
-                }
-            }
+            initAirlocks();
             init = true;
-        }
-        else
-        {
-            Echo("Init was NOT required");
         }
 
         Echo("AirlockCount" + airlockCount);
           for (int i = 0; i < airlockCount; i++) 
-          { 
-                if (!allAirlocks[i].airlock.insideLight.Enabled)
-                {
-                    if (allAirlocks[i].airlock.outsideLight.Enabled &&
-                        allAirlocks[i].airlock.middleLight.Enabled)
-                        allAirlocks[i].enterAirlockFromInside();
-                }
+          {
+              Echo("State" + allAirlocks[i].state);
+              Echo("EnterState" + allAirlocks[i].enterState);
+
+              allAirlocks[i].checkAirlockState();
+              allAirlocks[i].provideAirlockActions();
 
            } 
     
