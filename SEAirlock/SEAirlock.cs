@@ -92,9 +92,51 @@ class StatusReport
             this.airlock = _airlock;
         }
 
+        public void checkSimpleAirlock()
+        {
+            if (airlock.outsideDoorBlock.Open)
+            {
+                airlock.insideDoorBlock.ApplyAction("OnOff_Off");
+                if (airlock.insideLight != null)
+                {
+                    airlock.insideLight.SetValue("Color", red);
+                }
+            }
+            else
+            {
+                airlock.insideDoorBlock.ApplyAction("OnOff_On");
+                if (airlock.insideLight != null)
+                {
+                    airlock.insideLight.SetValue("Color", green);
+                }
+
+            }
+
+            if (airlock.insideDoorBlock.Open)
+            {
+                airlock.outsideDoorBlock.ApplyAction("OnOff_Off");
+                if (airlock.outsideLight != null)
+                {
+                    airlock.outsideLight.SetValue("Color", red);
+                }
+
+            }
+            else
+            {
+                airlock.outsideDoorBlock.ApplyAction("OnOff_On");
+                if (airlock.outsideLight != null)
+                {
+                    airlock.outsideLight.SetValue("Color", green);
+                }
+
+            }
+
+
+        }
+
         public void checkAirlockState()
         {
-
+            
             if (!airlock.insideLight.Enabled && state == Idle)
             {
                 state = RequestAccesFromInisde;
@@ -132,6 +174,7 @@ class StatusReport
 
         public void provideAirlockActions()
         {
+            
             switch (state)
             {
                 case RequestAccesFromInisde: enterAirlockFromInside(); break;
@@ -248,9 +291,12 @@ class StatusReport
         Echo(airVentName);
         for (int j = 0; j < airventObjects.Count; j++)
         {
-
+            
             IMyTerminalBlock tmp = GridTerminalSystem.GetBlockWithName(airVentName + airventObjects[j]) as IMyTerminalBlock;
-            Echo(airVentName + airventObjects[j]);
+            if (tmp != null)
+            {
+                Echo(airVentName + airventObjects[j]);
+            }
             tmpObjects.Add(tmp);
         }
 
@@ -260,23 +306,28 @@ class StatusReport
         airlock.insideLight = (IMyInteriorLight)tmpObjects[3];
         airlock.middleLight = (IMyInteriorLight)tmpObjects[4];
         airlock.airvent = (IMyAirVent)tmpObjects[5];
+        
+        
 
     }
 
+    /* collect all inside doorblocks that start with airvent, these should be unique*/
     void initAirlocks()
     {
+        
         List<IMyTerminalBlock> allBlocks = new List<IMyTerminalBlock>();
         GridTerminalSystem.GetBlocks(allBlocks);
 
-        List<IMyTerminalBlock> airVentBlocks = new List<IMyTerminalBlock>();
-        GridTerminalSystem.GetBlocksOfType<IMyAirVent>(airVentBlocks);
+        List<IMyTerminalBlock> doorBlocks = new List<IMyTerminalBlock>();
+        GridTerminalSystem.GetBlocksOfType<IMyDoor>(doorBlocks);
+
 
         airlockCount = 0;
-        for (int i = 0; i < airVentBlocks.Count; i++)
+        for (int i = 0; i < doorBlocks.Count; i++)
         {
 
-            string tmpBlockName = airVentBlocks[i].CustomName;
-            if (tmpBlockName.StartsWith("Airlock"))
+            string tmpBlockName = doorBlocks[i].CustomName;
+            if (tmpBlockName.StartsWith("Airlock") && tmpBlockName.Substring(8) == "insideDoor")
             {
                 AirlockObjects airlockObj = new AirlockObjects();
 
@@ -291,7 +342,7 @@ class StatusReport
 
             }
         }
-        
+
     }
     
     
@@ -308,19 +359,28 @@ class StatusReport
         Echo("AirlockCount" + airlockCount);
           for (int i = 0; i < airlockCount; i++) 
           {
+              Echo("Airlock: " + i);
+              Echo("--------------");
               Echo("State" + allAirlocks[i].state);
               Echo("EnterState" + allAirlocks[i].enterState);
-              Echo("Oxygen:" + allAirlocks[i].airlock.airvent.GetOxygenLevel());
 
-              allAirlocks[i].checkAirlockState();
-              allAirlocks[i].provideAirlockActions();
+              if (allAirlocks[i].airlock.outsideLight != null && allAirlocks[i].airlock.insideLight != null
+                && allAirlocks[i].airlock.middleLight != null && allAirlocks[i].airlock.airvent != null)
+              {
+                  Echo("Oxygen:" + allAirlocks[i].airlock.airvent.GetOxygenLevel());
 
+                  allAirlocks[i].checkAirlockState();
+                  allAirlocks[i].provideAirlockActions();
+              }
+              else
+              {
+                  allAirlocks[i].checkSimpleAirlock();
+              }
+                Echo("");
+
+            
            } 
     
-         
-
-
-
        
     } 
 
