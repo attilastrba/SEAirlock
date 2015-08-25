@@ -120,6 +120,14 @@ class StatusReport
                 enterState = closeDoor;
 
             }
+
+            if (!airlock.outsideLight.Enabled && state == Idle)
+            {
+                state = RequestAccesFromOutside;
+                enterState = closeDoor;
+
+            }
+
         }
 
         public void provideAirlockActions()
@@ -127,16 +135,14 @@ class StatusReport
             switch (state)
             {
                 case RequestAccesFromInisde: enterAirlockFromInside(); break;
-                case RequestAccesFromOutside: enterAirlockFromOutside(); break;
+                case RequestAccesFromOutside: requestAccessToOutside(); break;
                 case RequestAccesToOutside: requestAccessToOutside(); break;
                 case RequestAccesToInside: enterAirlockFromInside(); break;
             }
 
         }
 
-        public void enterAirlockFromOutside()
-        { 
-        }
+    
 
         
         public void requestAccessToOutside()
@@ -168,12 +174,14 @@ class StatusReport
 
                 case pressurize:
                     {
-                        if (airlock.airvent.GetOxygenLevel() < 0.5f || pressurizationCount > MAX_PRESSURIZATION)
+                        if (airlock.airvent.GetOxygenLevel() < 0.2f || pressurizationCount > MAX_PRESSURIZATION)
                         {
                             airlock.outsideDoorBlock.ApplyAction("OnOff_On");
                             airlock.middleLight.ApplyAction("DecreaseBlink Interval");
                             airlock.middleLight.SetValue("Color", red);
                             airlock.outsideLight.SetValue("Color", green);
+                            airlock.outsideLight.ApplyAction("OnOff_On");
+                            airlock.outsideDoorBlock.ApplyAction("Open_On");
                             enterState = closeDoor;
                             state = Idle;                            
                         }
@@ -190,7 +198,8 @@ class StatusReport
             {
                 case closeDoor: 
                     {
-                        airlock.outsideDoorBlock.ApplyAction("Open_Off");
+                        airlock.outsideLight.SetValue("Color", red);
+                        airlock.outsideDoorBlock.ApplyAction("Open_Off");                        
                         airlock.middleLight.SetValue("Color", red);
                         if (!airlock.outsideDoorBlock.Open)
                         {
