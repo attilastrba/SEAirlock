@@ -92,7 +92,7 @@ class StatusReport
             this.airlock = _airlock;
         }
 
-        public void checkSimpleAirlock()
+        public void checkSimpleAirlock(ref string lcdText)
         {
             if (airlock.outsideDoorBlock.Open)
             {
@@ -101,33 +101,27 @@ class StatusReport
                 {
                     airlock.insideLight.SetValue("Color", red);
                 }
+                lcdText = "Depressurized";
             }
-            else
-            {
-                airlock.insideDoorBlock.ApplyAction("OnOff_On");
-                if (airlock.insideLight != null)
-                {
-                    airlock.insideLight.SetValue("Color", green);
-                }
-
-            }
-
-            if (airlock.insideDoorBlock.Open)
+            else if (airlock.insideDoorBlock.Open)
             {
                 airlock.outsideDoorBlock.ApplyAction("OnOff_Off");
                 if (airlock.outsideLight != null)
                 {
                     airlock.outsideLight.SetValue("Color", red);
                 }
-
+                lcdText = "Pressurized";
             }
             else
             {
                 airlock.outsideDoorBlock.ApplyAction("OnOff_On");
+                airlock.insideDoorBlock.ApplyAction("OnOff_On");
                 if (airlock.outsideLight != null)
                 {
-                    airlock.outsideLight.SetValue("Color", green);
+                    airlock.insideLight.SetValue("Color", green);
+                    airlock.outsideLight.SetValue("Color", green);                
                 }
+                lcdText = "Pressurized";
 
             }
 
@@ -348,13 +342,21 @@ class StatusReport
     
     void Main()
     {
-       
+       IMyTextPanel airlockLCDPanel = GridTerminalSystem.GetBlockWithName("AirlockLCD") as IMyTextPanel;
+        string lcdText = "";
+        string lcdOxygen = "";
         if (!init)
         {
             Echo("Init was required");
             initAirlocks();
             init = true;
         }
+        
+        if (airlockLCDPanel != null)
+        {
+            airlockLCDPanel.WritePublicText("");
+        }
+    
 
         Echo("AirlockCount" + airlockCount);
           for (int i = 0; i < airlockCount; i++) 
@@ -363,22 +365,54 @@ class StatusReport
               Echo("--------------");
               Echo("State" + allAirlocks[i].state);
               Echo("EnterState" + allAirlocks[i].enterState);
-
+              
               if (allAirlocks[i].airlock.outsideLight != null && allAirlocks[i].airlock.insideLight != null
                 && allAirlocks[i].airlock.middleLight != null && allAirlocks[i].airlock.airvent != null)
               {
+                  lcdOxygen = " O2[" + allAirlocks[i].airlock.airvent.GetOxygenLevel() * 100f + "%]";
                   Echo("Oxygen:" + allAirlocks[i].airlock.airvent.GetOxygenLevel());
+
+                  if (allAirlocks[i].airlock.airvent.GetOxygenLevel() == 0f)
+                  {
+                      lcdText = "Depressurized";
+                  }
+                  else if (allAirlocks[i].airlock.airvent.GetOxygenLevel() > 0.9f)
+                  {
+                      lcdText = "Pressurized";
+                  }
+                  else
+                  {
+                      lcdText = "Pressurization Ongoing!";
+                  }
 
                   allAirlocks[i].checkAirlockState();
                   allAirlocks[i].provideAirlockActions();
+
+                  if (airlockLCDPanel != null)
+                  {
+
+                      airlockLCDPanel.WritePublicText("Airlock" + (i + 1) + ":" + lcdText + lcdOxygen + "\n", true);
+                      lcdText = "";
+                  }
+
               }
               else
               {
-                  allAirlocks[i].checkSimpleAirlock();
+                  allAirlocks[i].checkSimpleAirlock(ref lcdText);
+
+                  if (airlockLCDPanel != null)
+                  {
+
+                      airlockLCDPanel.WritePublicText("Airlock" + (i + 1) + ":" + lcdText + "\n", true);
+                      lcdText = "";
+                  }
+
               }
                 Echo("");
 
-            
+              
+                
+
            } 
     
        
